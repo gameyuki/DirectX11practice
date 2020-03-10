@@ -17,6 +17,7 @@
 #pragma comment(lib,"d3dx11.lib")
 #endif
 
+#pragma comment(lib,"dxgi.lib" )
 #pragma comment(lib,"dxerr.lib")
 #pragma comment(lib,"winmm.lib")
 
@@ -32,12 +33,51 @@ ID3D11RenderTargetView*		g_pRenderTargetView = NULL;			//<<Å@ï`âÊÉ^Å[ÉQÉbÉgÅEÉrÉ
 D3D11_VIEWPORT				g_ViewPort[1];						//<<Å@ÉrÉÖÅ[É|Å[ÉgÇÃê›íË
 ID3D11Texture2D*			g_pDepthStencil;					//<<Å@ê[ìx/ÉXÉeÉìÉVÉãÅEÉeÉNÉXÉ`ÉÉÇéÛÇØéÊÇÈïœêî
 ID3D11DepthStencilView*		g_pDepthStencilView;				//<<Å@ÉXÉeÉìÉVÉãÅEÉrÉÖÅ[
+IDXGIFactory*				g_pFactory = NULL;					//<<Å@
+
+bool g_bStandbyMode = false;		//<<Å@ÉXÉ^ÉìÉoÉCÉÇÅ[Éhópïœêî
 
 #if defined(DEBUG) || defined(_DEBUG)
 UINT createDeviceFlags = D3D11_CREATE_DEVICE_DEBUG;
 #else
 UINT createDeviceFlags = 0;
 #endif
+
+/* ÉoÉbÉNÉoÉbÉtÉ@ÇÃèâä˙âª */
+bool InitBackBuffer()
+{
+	/* ÉoÉbÉNÉoÉbÉtÉ@ÇéÊìæ */
+	ID3D11Texture2D *pBackBuffer;
+	HRESULT bhr = g_pSwapChain->GetBuffer(
+		0,
+		__uuidof(ID3D11Texture2D),
+		(LPVOID*)&pBackBuffer);
+	if (FAILED(bhr)) return false;
+
+	/* ÉoÉbÉNÉoÉbÉtÉ@ÇÃï`âÊÉ^Å[ÉQÉbÉgÅEÉrÉÖÅ[ÇçÏÇÈ */
+	bhr = g_pD3DDevice->CreateRenderTargetView(
+		pBackBuffer,
+		NULL,
+		&g_pRenderTargetView);
+	SAFE_RELEASE(pBackBuffer);
+	if (FAILED(bhr)) return false;
+
+	/* ï`âÊÉ^Å[ÉQÉbÉgÅEÉrÉÖÅ[ÇèoóÕÉ}ÉlÅ[ÉWÉÉÅ[ÇÃï`âÊÉ^Å[ÉQÉbÉgÇ∆ÇµÇƒê›íË */
+	g_pImmediateContext->OMSetRenderTargets(
+		1,
+		&g_pRenderTargetView,
+		NULL);
+
+	/* ÉrÉÖÅ[É|Å[ÉgÇÃê›íË */
+	g_ViewPort[0].TopLeftX = 0.0f;
+	g_ViewPort[0].TopLeftY = 0.0f;
+	g_ViewPort[0].Width = 640.0f;
+	g_ViewPort[0].Height = 480.0f;
+	g_ViewPort[0].MinDepth = 0.0f;
+	g_ViewPort[0].MaxDepth = 1.0f;
+
+	return true;
+}
 
 /* èâä˙âªèàóù */
 bool CreateDirect3D(HWND _hwnd)
@@ -110,35 +150,17 @@ bool CreateDirect3D(HWND _hwnd)
 		}
 	}
 
-	/* ÉoÉbÉNÉoÉbÉtÉ@ÇéÊìæ */
-	ID3D11Texture2D *pBackBuffer;
-	HRESULT bhr = g_pSwapChain->GetBuffer(
-		0,
-		__uuidof(ID3D11Texture2D),
-		(LPVOID*)&pBackBuffer);
-	if (FAILED(bhr)) return false;
+	/* ÉoÉbÉNÉoÉbÉtÉ@ÇÃèâä˙âª */
+	if (!InitBackBuffer()) return false;
 
-	/* ÉoÉbÉNÉoÉbÉtÉ@ÇÃï`âÊÉ^Å[ÉQÉbÉgÅEÉrÉÖÅ[ÇçÏÇÈ */
-	bhr = g_pD3DDevice->CreateRenderTargetView(
-		pBackBuffer,
-		NULL,
-		&g_pRenderTargetView);
-	SAFE_RELEASE(pBackBuffer);
-	if (FAILED(bhr)) return false;
-
-	/* ï`âÊÉ^Å[ÉQÉbÉgÅEÉrÉÖÅ[ÇèoóÕÉ}ÉlÅ[ÉWÉÉÅ[ÇÃï`âÊÉ^Å[ÉQÉbÉgÇ∆ÇµÇƒê›íË */
-	g_pImmediateContext->OMSetRenderTargets(
-		1,
-		&g_pRenderTargetView,
-		NULL);
-
-	/* ÉrÉÖÅ[É|Å[ÉgÇÃê›íË */
-	g_ViewPort[0].TopLeftX = 0.0f;
-	g_ViewPort[0].TopLeftY = 0.0f;
-	g_ViewPort[0].Width = 640.0f;
-	g_ViewPort[0].Height = 480.0f;
-	g_ViewPort[0].MinDepth = 0.0f;
-	g_ViewPort[0].MaxDepth = 1.0f;
+	/* IDXGIFactoryÉCÉìÉ^Å[ÉtÉFÉCÉXÇÃéÊìæ */
+	if (FAILED(CreateDXGIFactory(__uuidof(IDXGIFactory), (void**)(&g_pFactory))))	return  false;
+	
+	/* TODO */
+	/* âÊñ ÉÇÅ[Éhêÿë÷ã@î\Çê›íËÇ∑ÇÈ */
+	if(FAILED(g_pFactory->MakeWindowAssociation(
+		_hwnd,
+		0)))	return false;		//<< é∏îsÇÃédï˚Ç™ñ îíÇ¢
 
 	/* ÉâÉXÉ^ÉâÉCÉUÇ…ÉrÉÖÅ[É|Å[ÉgÇê›íË */
 	g_pImmediateContext->RSSetViewports(1, g_ViewPort);
@@ -158,11 +180,11 @@ bool CreateDirect3D(HWND _hwnd)
 	descDepth.BindFlags = D3D11_BIND_DEPTH_STENCIL;
 	descDepth.CPUAccessFlags = 0;
 	descDepth.MiscFlags = 0;
-	bhr = g_pD3DDevice->CreateTexture2D(
+	hr = g_pD3DDevice->CreateTexture2D(
 		&descDepth,
 		NULL,
 		&g_pDepthStencil);
-	if (FAILED(bhr)) return 0;
+	if (FAILED(hr)) return 0;
 
 	/* ÉXÉeÉìÉVÉãÅEÉrÉÖÅ[ÇÃçÏê¨ */
 	D3D11_DEPTH_STENCIL_VIEW_DESC descDSV;
@@ -170,11 +192,11 @@ bool CreateDirect3D(HWND _hwnd)
 	descDSV.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
 	descDSV.Flags = 0;
 	descDSV.Texture2D.MipSlice = 0;
-	bhr = g_pD3DDevice->CreateDepthStencilView(
+	hr = g_pD3DDevice->CreateDepthStencilView(
 		g_pDepthStencil,
 		&descDSV,
 		&g_pDepthStencilView);
-	if (FAILED(bhr)) return 0;
+	if (FAILED(hr)) return 0;
 
 	/* ÉXÉeÉìÉVÉãÅEÉrÉÖÅ[ÇÃégóp */
 	g_pImmediateContext->OMSetRenderTargets(
@@ -210,6 +232,29 @@ void ReleaseDevice()
 	SAFE_RELEASE(g_pD3DDevice);
 }
 
+/* ÉfÉoÉCÉXÇÃè¡é∏èàóù */
+bool IsDeviceRemoved(HWND _hWnd)
+{
+	/* ÉfÉoÉCÉXÇÃè¡é∏èàóù */
+	HRESULT hr;
+	hr = g_pD3DDevice->GetDeviceRemovedReason();
+	switch (hr)
+	{
+	case S_OK:
+		break;	//<<Å@ê≥èÌ
+	case DXGI_ERROR_DEVICE_HUNG:
+	case DXGI_ERROR_DEVICE_RESET:
+		ReleaseDevice();
+		if (!CreateDirect3D(_hWnd)) return 0;
+		break;
+	case DXGI_ERROR_DEVICE_REMOVED:
+	case DXGI_ERROR_DRIVER_INTERNAL_ERROR:
+	case DXGI_ERROR_INVALID_CALL:
+	default:
+		return 0;	//<<Å@Ç«Ç§ÇµÇÊÇ§Ç‡Ç»Ç¢ÇÃÇ≈ÉAÉvÉäÉPÅ[ÉVÉáÉìÇèIóπ
+	}
+}
+
 LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wp, LPARAM lp)
 {
 	switch (msg)
@@ -225,6 +270,22 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wp, LPARAM lp)
 	case WM_DESTROY:
 		PostQuitMessage(0);
 		return 0;
+		/* TODO  */
+	case WM_SIZE:
+		if (!g_pD3DDevice || wp == SIZE_MINIMIZED)
+			break;
+
+		/* ï`âÊÉ^Å[ÉQÉbÉgÇâèúÇ∑ÇÈ */
+		g_pImmediateContext->OMSetRenderTargets(0, NULL, NULL);		//<<Å@ï`âÊÉ^Å[ÉQÉbÉgÇÃâèú
+		SAFE_RELEASE(g_pRenderTargetView);							//<<Å@ï`âÊÉ^Å[ÉQÉbÉgÉrÉÖÅ[ÇÃâï˙
+
+		/* ÉoÉbÉtÉ@ÇÃïœçX */
+		g_pSwapChain->ResizeBuffers(1, 0, 0, DXGI_FORMAT_R16G16B16A16_FLOAT, 0);
+
+		/* ÉoÉbÉNÉoÉbÉtÉ@ÇÃèâä˙âª */
+		InitBackBuffer();
+		break;
+
 	}
 	return DefWindowProc(hWnd, msg, wp, lp);
 }
@@ -287,28 +348,25 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInsta, LPSTR szStr, INT i
 
 			if (PrevTime - CurrentTime >= 1000 / 60)
 			{
-				/* ÉfÉoÉCÉXÇÃè¡é∏èàóù */
-				HRESULT hr;
-				hr = g_pD3DDevice->GetDeviceRemovedReason();
-				switch (hr)
+				IsDeviceRemoved(hWnd);
+				/* ÉXÉ^ÉìÉoÉCÉÇÅ[Éh */
+				if (g_bStandbyMode)
 				{
-				case S_OK:
-					break;	//<<Å@ê≥èÌ
-				case DXGI_ERROR_DEVICE_HUNG:
-				case DXGI_ERROR_DEVICE_RESET:
-					ReleaseDevice();
-					if (!CreateDirect3D(hWnd)) return 0;
-					break;
-				case DXGI_ERROR_DEVICE_REMOVED:
-				case DXGI_ERROR_DRIVER_INTERNAL_ERROR:
-				case DXGI_ERROR_INVALID_CALL:
-				default:
-					return 0;	//<<Å@Ç«Ç§ÇµÇÊÇ§Ç‡Ç»Ç¢ÇÃÇ≈ÉAÉvÉäÉPÅ[ÉVÉáÉìÇèIóπ
+					HRESULT shr = g_pSwapChain->Present(0, DXGI_PRESENT_TEST);
+					if (shr != S_OK)
+					{
+						Sleep(100);
+						continue;
+					}
+					g_bStandbyMode = false;		//<<Å@ÉXÉ^ÉìÉoÉCÉÇÅ[Éhâèú
+				}
+				/* ï`âÊ */
+				HRESULT hr = g_pSwapChain->Present(0, 0);
+				if (hr == DXGI_STATUS_OCCLUDED)
+				{
+					g_bStandbyMode = true;
 				}
 
-
-				/* ï`âÊ */
-				g_pSwapChain->Present(0, 0);
 				CurrentTime = PrevTime;
 			}
 		}
