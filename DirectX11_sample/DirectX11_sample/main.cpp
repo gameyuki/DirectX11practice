@@ -31,11 +31,13 @@ ID3D11DeviceContext*		g_pImmediateContext = NULL;			//<<　デバイス・コンテキスト
 IDXGISwapChain*				g_pSwapChain = NULL;				//<<　スワップ・チェイン
 ID3D11RenderTargetView*		g_pRenderTargetView = NULL;			//<<　描画ターゲット・ビュー
 D3D11_VIEWPORT				g_ViewPort[1];						//<<　ビューポートの設定
-ID3D11Texture2D*			g_pDepthStencil;					//<<　深度/ステンシル・テクスチャを受け取る変数
-ID3D11DepthStencilView*		g_pDepthStencilView;				//<<　ステンシル・ビュー
+//ID3D11Texture2D*			g_pDepthStencil;					//<<　深度/ステンシル・テクスチャを受け取る変数
+//ID3D11DepthStencilView*		g_pDepthStencilView;				//<<　ステンシル・ビュー
 IDXGIFactory*				g_pFactory = NULL;					//<<　
 
 bool g_bStandbyMode = false;		//<<　スタンバイモード用変数
+
+float g_ClearColor[4] = { 0.0f,0.125f,0.3f,1.0f };
 
 #if defined(DEBUG) || defined(_DEBUG)
 UINT createDeviceFlags = D3D11_CREATE_DEVICE_DEBUG;
@@ -162,60 +164,47 @@ bool CreateDirect3D(HWND _hwnd)
 		_hwnd,
 		0)))	return false;		//<< 失敗の仕方が面白い
 
-	/* ラスタライザにビューポートを設定 */
-	g_pImmediateContext->RSSetViewports(1, g_ViewPort);
+	
 
 	/* ステンシル・テクスチャの作成 */
 
 	/* 深度ステンシルバッファの設定 */
-	D3D11_TEXTURE2D_DESC descDepth;
-	descDepth.Width = 640;
-	descDepth.Height = 480;
-	descDepth.MipLevels = 1;
-	descDepth.ArraySize = 1;
-	descDepth.Format = DXGI_FORMAT_D32_FLOAT;
-	descDepth.SampleDesc.Count = 1;
-	descDepth.SampleDesc.Quality = 0;
-	descDepth.Usage = D3D11_USAGE_DEFAULT;
-	descDepth.BindFlags = D3D11_BIND_DEPTH_STENCIL;
-	descDepth.CPUAccessFlags = 0;
-	descDepth.MiscFlags = 0;
-	hr = g_pD3DDevice->CreateTexture2D(
-		&descDepth,
-		NULL,
-		&g_pDepthStencil);
-	if (FAILED(hr)) return 0;
+	//D3D11_TEXTURE2D_DESC descDepth;
+	//descDepth.Width = 640;
+	//descDepth.Height = 480;
+	//descDepth.MipLevels = 1;
+	//descDepth.ArraySize = 1;
+	//descDepth.Format = DXGI_FORMAT_D32_FLOAT;
+	//descDepth.SampleDesc.Count = 1;
+	//descDepth.SampleDesc.Quality = 0;
+	//descDepth.Usage = D3D11_USAGE_DEFAULT;
+	//descDepth.BindFlags = D3D11_BIND_DEPTH_STENCIL;
+	//descDepth.CPUAccessFlags = 0;
+	//descDepth.MiscFlags = 0;
+	//hr = g_pD3DDevice->CreateTexture2D(
+	//	&descDepth,
+	//	NULL,
+	//	&g_pDepthStencil);
+	//if (FAILED(hr)) return 0;
 
 	/* ステンシル・ビューの作成 */
-	D3D11_DEPTH_STENCIL_VIEW_DESC descDSV;
-	descDSV.Format = descDepth.Format;
-	descDSV.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
-	descDSV.Flags = 0;
-	descDSV.Texture2D.MipSlice = 0;
-	hr = g_pD3DDevice->CreateDepthStencilView(
-		g_pDepthStencil,
-		&descDSV,
-		&g_pDepthStencilView);
-	if (FAILED(hr)) return 0;
+	//D3D11_DEPTH_STENCIL_VIEW_DESC descDSV;
+	//descDSV.Format = descDepth.Format;
+	//descDSV.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
+	//descDSV.Flags = 0;
+	//descDSV.Texture2D.MipSlice = 0;
+	//hr = g_pD3DDevice->CreateDepthStencilView(
+	//	g_pDepthStencil,
+	//	&descDSV,
+	//	&g_pDepthStencilView);
+	//if (FAILED(hr)) return 0;
 
-	/* ステンシル・ビューの使用 */
-	g_pImmediateContext->OMSetRenderTargets(
-		1,
-		&g_pRenderTargetView,
-		g_pDepthStencilView);
-
-	/* 描画ターゲットのクリア */
-	float ClearColor[4] = { 0.0f,0.125f,0.3f,1.0f };
-	g_pImmediateContext->ClearRenderTargetView(
-		g_pRenderTargetView,
-		ClearColor);
-
-	/* ステンシル値のクリア */
-	g_pImmediateContext->ClearDepthStencilView(
-		g_pDepthStencilView,
-		D3D11_CLEAR_DEPTH,
-		1.0f,
-		0);
+	///* ステンシル値のクリア */
+	//g_pImmediateContext->ClearDepthStencilView(
+	//	g_pDepthStencilView,
+	//	D3D11_CLEAR_DEPTH,
+	//	1.0f,
+	//	0);
 
 
 	return true;
@@ -225,6 +214,8 @@ bool CreateDirect3D(HWND _hwnd)
 void ReleaseDevice()
 {
 	if (g_pImmediateContext) g_pImmediateContext->ClearState();
+
+	if (g_pSwapChain)	g_pSwapChain->SetFullscreenState(FALSE, NULL);
 
 	SAFE_RELEASE(g_pRenderTargetView);
 	SAFE_RELEASE(g_pSwapChain);
@@ -245,32 +236,93 @@ bool IsDeviceRemoved(HWND _hWnd)
 	case DXGI_ERROR_DEVICE_HUNG:
 	case DXGI_ERROR_DEVICE_RESET:
 		ReleaseDevice();
-		if (!CreateDirect3D(_hWnd)) return 0;
+		if (!CreateDirect3D(_hWnd)) return false;
 		break;
 	case DXGI_ERROR_DEVICE_REMOVED:
 	case DXGI_ERROR_DRIVER_INTERNAL_ERROR:
 	case DXGI_ERROR_INVALID_CALL:
 	default:
-		return 0;	//<<　どうしようもないのでアプリケーションを終了
+		return false;	//<<　どうしようもないのでアプリケーションを終了
 	}
+
+	return true;
+}
+
+HRESULT Render()
+{
+	/* 描画ターゲットのクリア */
+	g_pImmediateContext->ClearRenderTargetView(
+		g_pRenderTargetView,
+		g_ClearColor);
+
+	/* ラスタライザにビューポートを設定 */
+	g_pImmediateContext->RSSetViewports(1, g_ViewPort);
+
+	/* ステンシル・ビューの使用 */
+	g_pImmediateContext->OMSetRenderTargets(
+		1,
+		&g_pRenderTargetView,
+		NULL);
+
+	/* バックバッファの表示 */
+	HRESULT hr = g_pSwapChain->Present(0, 0);
+
+	return hr;
+}
+
+bool Draw(HWND _hWnd)
+{
+
+	HRESULT hr;
+
+	if (!g_pD3DDevice)	return false;
+
+	/* デバイスの消失処理 */
+	if (!IsDeviceRemoved(_hWnd))	return false;
+
+	/* スタンバイモード */
+	if (g_bStandbyMode)
+	{
+		hr = g_pSwapChain->Present(0, DXGI_PRESENT_TEST);
+		if (hr != S_OK)
+		{
+			Sleep(100);
+			return true;
+		}
+		g_bStandbyMode = false;		//<<　スタンバイモード解除
+	}
+
+	/* 描画 */
+	hr = Render();
+	/* スタンバイモードに入る */
+	if (hr == DXGI_STATUS_OCCLUDED)
+	{
+		g_bStandbyMode = true;
+
+		// 描画ターゲットをクリアする色の変更
+		float c = g_ClearColor[0];
+		g_ClearColor[0] = g_ClearColor[1];
+		g_ClearColor[1] = g_ClearColor[2];
+		g_ClearColor[2] = g_ClearColor[3];
+		g_ClearColor[3] = c;
+	}
+
+	return true;
 }
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wp, LPARAM lp)
 {
+
+	HRESULT hr = S_OK;
+	BOOL fullscreen;
+
 	switch (msg)
 	{
-	case WM_KEYDOWN:
-		switch (wp)
-		{
-		case VK_ESCAPE:
-			PostQuitMessage(0);
-			break;
-		}
-		break;
 	case WM_DESTROY:
 		PostQuitMessage(0);
 		return 0;
-		/* TODO  */
+
+		/* ウインドウサイズの変更処理  */
 	case WM_SIZE:
 		if (!g_pD3DDevice || wp == SIZE_MINIMIZED)
 			break;
@@ -280,13 +332,43 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT msg, WPARAM wp, LPARAM lp)
 		SAFE_RELEASE(g_pRenderTargetView);							//<<　描画ターゲットビューの解放
 
 		/* バッファの変更 */
-		g_pSwapChain->ResizeBuffers(1, 0, 0, DXGI_FORMAT_R16G16B16A16_FLOAT, 0);
+		g_pSwapChain->ResizeBuffers(1, 0, 0, DXGI_FORMAT_R8G8B8A8_UNORM, 0);
 
 		/* バックバッファの初期化 */
 		InitBackBuffer();
 		break;
-
+	case WM_KEYDOWN:
+		switch (wp)
+		{
+		case VK_ESCAPE:
+			PostQuitMessage(0);
+			break;
+		case VK_F5:
+			if (g_pSwapChain != NULL)
+			{
+				g_pSwapChain->GetFullscreenState(&fullscreen, NULL);
+				g_pSwapChain->SetFullscreenState(!fullscreen, NULL);
+			}
+			break;
+		case VK_F6:
+			if (g_pSwapChain != NULL)
+			{
+				DXGI_MODE_DESC desc;
+				desc.Width = 800;
+				desc.Height = 600;
+				desc.RefreshRate.Numerator = 60;
+				desc.RefreshRate.Denominator = 1;
+				desc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+				desc.ScanlineOrdering = DXGI_MODE_SCANLINE_ORDER_UNSPECIFIED;
+				desc.Scaling = DXGI_MODE_SCALING_UNSPECIFIED;
+				hr = g_pSwapChain->ResizeTarget(&desc);
+				if (FAILED(hr))	return false;
+			}
+			break;
+		}
+		break;
 	}
+
 	return DefWindowProc(hWnd, msg, wp, lp);
 }
 
@@ -348,24 +430,7 @@ int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInsta, LPSTR szStr, INT i
 
 			if (PrevTime - CurrentTime >= 1000 / 60)
 			{
-				IsDeviceRemoved(hWnd);
-				/* スタンバイモード */
-				if (g_bStandbyMode)
-				{
-					HRESULT shr = g_pSwapChain->Present(0, DXGI_PRESENT_TEST);
-					if (shr != S_OK)
-					{
-						Sleep(100);
-						continue;
-					}
-					g_bStandbyMode = false;		//<<　スタンバイモード解除
-				}
-				/* 描画 */
-				HRESULT hr = g_pSwapChain->Present(0, 0);
-				if (hr == DXGI_STATUS_OCCLUDED)
-				{
-					g_bStandbyMode = true;
-				}
+				if (!Draw(hWnd))	DestroyWindow(hWnd);
 
 				CurrentTime = PrevTime;
 			}
